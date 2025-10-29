@@ -19,7 +19,7 @@ const Notification = () => {
         if (!user) return;
 
         // Conectar al servidor de Socket.IO
-        const socket = io(import.meta.env.VITE_API_URL || 'http://localhost:3001');
+    const socket = io(import.meta.env.VITE_API_URL);
 
         // Autenticar el socket con el ID del usuario
         socket.emit('authenticate', user._id);

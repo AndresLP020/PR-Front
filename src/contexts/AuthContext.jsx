@@ -16,7 +16,7 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (email, password) => {
     try {
-      const response = await axios.post('http://localhost:3001/api/auth/login', {
+  const response = await axios.post(`${import.meta.env.VITE_API_URL}/api/auth/login`, {
         email,
         password
       });
@@ -38,7 +38,7 @@ export const AuthProvider = ({ children }) => {
 
   const register = async (userData) => {
     try {
-      const response = await axios.post('http://localhost:3001/api/auth/register', userData, {
+  const response = await axios.post(`${import.meta.env.VITE_API_URL}/api/auth/register`, userData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         }
@@ -80,7 +80,7 @@ export const AuthProvider = ({ children }) => {
     }
 
     try {
-      const response = await axios.get('http://localhost:3001/api/auth/verify', {
+  const response = await axios.get(`${import.meta.env.VITE_API_URL}/api/auth/verify`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       
@@ -126,7 +126,7 @@ export const AuthProvider = ({ children }) => {
 
   const forgotPassword = async (email) => {
     try {
-      const response = await axios.post('http://localhost:3001/api/auth/forgot-password', {
+  const response = await axios.post(`${import.meta.env.VITE_API_URL}/api/auth/forgot-password`, {
         email
       });
       
@@ -141,7 +141,7 @@ export const AuthProvider = ({ children }) => {
 
   const resetPassword = async (token, newPassword) => {
     try {
-      const response = await axios.post('http://localhost:3001/api/auth/reset-password', {
+  const response = await axios.post(`${import.meta.env.VITE_API_URL}/api/auth/reset-password`, {
         token,
         newPassword
       });

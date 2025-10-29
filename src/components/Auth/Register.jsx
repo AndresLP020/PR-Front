@@ -128,7 +128,7 @@ export default function Register() {
     const fetchCarreras = async () => {
       setIsLoadingCarreras(true);
       try {
-        const response = await fetch('http://localhost:3001/api/carreras');
+  const response = await fetch(`${import.meta.env.VITE_API_URL}/api/carreras`);
         if (!response.ok) {
           throw new Error('Error al cargar carreras');
         }

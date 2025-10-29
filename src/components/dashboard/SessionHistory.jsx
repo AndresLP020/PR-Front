@@ -21,8 +21,7 @@ import {
   styled,
   Modal,
   Chip,
-  Divider,
-  useTheme
+  Divider
 } from '@mui/material';
 import { 
   ArrowBack, 
@@ -206,7 +205,7 @@ const ActivityDetails = ({ registro }) => {
                   variant="outlined"
                   size="small"
                   startIcon={<AttachFile />}
-                  href={`http://localhost:3001${evidencia.url}`}
+                  href={`${import.meta.env.VITE_API_URL}${evidencia.url}`}
                   target="_blank"
                   sx={{
                     borderRadius: '20px',
@@ -237,8 +236,7 @@ const SessionHistory = ({
   mostrarDetalle,
   volverATabla,
   formatearFecha,
-  registroSeleccionado,
-  getFileIcon
+  registroSeleccionado
 }) => {
   return (
     <Box sx={{ p: 3 }}>
