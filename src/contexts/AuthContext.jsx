@@ -8,6 +8,7 @@ export const AuthProvider = ({ children }) => {
   const [currentUser, setCurrentUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [retryCount, setRetryCount] = useState(0);
+  const [cryptoSession, setCryptoSession] = useState(null);
 
   // Configurar interceptors de axios para debugging
   useEffect(() => {
@@ -27,6 +28,18 @@ export const AuthProvider = ({ children }) => {
         localStorage.setItem('user', JSON.stringify(user));
         setCurrentUser(user);
         setRetryCount(0); // Reset retry count on successful login
+
+        // Iniciar sesión de cifrado híbrido (RSA-OAEP + AES-GCM)
+        try {
+          // import dynamically to avoid server-side issues
+          const { initSession } = await import('../services/cryptoClient');
+          const apiBase = import.meta.env.VITE_API_URL || '';
+          const { sessionId, aesKey } = await initSession(apiBase);
+          setCryptoSession({ sessionId, aesKey });
+        } catch (cryptoErr) {
+          console.error('Error iniciando sesión de cifrado:', cryptoErr);
+        }
+
         return { success: true, user };
       }
       
@@ -38,11 +51,8 @@ export const AuthProvider = ({ children }) => {
 
   const register = async (userData) => {
     try {
-  const response = await axios.post(`${import.meta.env.VITE_API_URL}/api/auth/register`, userData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        }
-      });
+  // Do NOT set Content-Type manually when sending FormData; the browser will add the proper boundary.
+  const response = await axios.post(`${import.meta.env.VITE_API_URL}/api/auth/register`, userData);
 
       if (response.data.success) {
         return { success: true, user: response.data.user, message: response.data.message };
@@ -60,11 +70,38 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // Check if an email already exists (used by registration form)
+  const checkEmailExists = async (email) => {
+    try {
+      const resp = await axios.get(`${import.meta.env.VITE_API_URL}/api/users/check-email`, {
+        params: { email }
+      });
+      return resp.data?.exists === true;
+    } catch (err) {
+      console.error('Error checking email existence:', err);
+      // In case of error, conservatively return false (so UI can proceed)
+      return false;
+    }
+  };
+
+  const checkNumeroControlExists = async (numeroControl) => {
+    try {
+      const resp = await axios.get(`${import.meta.env.VITE_API_URL}/api/users/check-numero-control`, {
+        params: { numeroControl }
+      });
+      return resp.data?.exists === true;
+    } catch (err) {
+      console.error('Error checking numeroControl existence:', err);
+      return false;
+    }
+  };
+
   const logout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     setCurrentUser(null);
     setRetryCount(0);
+    setCryptoSession(null);
   };
 
   const verifyToken = async () => {
@@ -89,6 +126,20 @@ export const AuthProvider = ({ children }) => {
       setCurrentUser(userData);
       setRetryCount(0); // Reset retry count on successful verification
       setLoading(false);
+
+      // Si ya hay token y no hay cryptoSession, iniciar sesión de cifrado automáticamente
+      try {
+        if (token && !cryptoSession) {
+          console.log('AuthContext.verifyToken: token válido y no hay cryptoSession — iniciando initSession');
+          const { initSession } = await import('../services/cryptoClient');
+          const apiBase = import.meta.env.VITE_API_URL || '';
+          const { sessionId, aesKey } = await initSession(apiBase);
+          console.log('AuthContext.verifyToken: sesión crypto iniciada', sessionId);
+          setCryptoSession({ sessionId, aesKey });
+        }
+      } catch (cryptoErr) {
+        console.error('AuthContext.verifyToken: error iniciando sesión de cifrado:', cryptoErr);
+      }
       
     } catch (error) {
       console.error('Error verificando token:', error);
@@ -155,6 +206,21 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const secureRequest = async (payload) => {
+    if (!cryptoSession) throw new Error('No crypto session');
+    const { encryptForSession, decryptFromSession } = await import('../services/cryptoClient');
+    const { sessionId, aesKey } = cryptoSession;
+    const plaintext = typeof payload === 'string' ? payload : JSON.stringify(payload);
+    const enc = await encryptForSession(aesKey, plaintext);
+    const token = localStorage.getItem('token');
+    const resp = await axios.post(`${import.meta.env.VITE_API_URL}/api/crypto/secure/${sessionId}`, enc, {
+      headers: { Authorization: token ? `Bearer ${token}` : '' }
+    });
+    const { iv, ciphertext } = resp.data;
+    const decrypted = await decryptFromSession(aesKey, iv, ciphertext);
+    try { return JSON.parse(decrypted); } catch { return decrypted; }
+  };
+
   return (
     <AuthContext.Provider 
       value={{ 
@@ -166,7 +232,12 @@ export const AuthProvider = ({ children }) => {
         updateUserProfile,
         forgotPassword,
         resetPassword,
-        verifyToken // Exponemos la función de verificación
+        verifyToken, // Exponemos la función de verificación
+        cryptoSession,
+        setCryptoSession,
+        secureRequest,
+        checkEmailExists,
+        checkNumeroControlExists
       }}
     >
       {!loading && children}
